@@ -1,4 +1,5 @@
 def start():
+
     while True:
 
         try:
@@ -47,10 +48,9 @@ def start():
         else:
             print("Choose correct option")
 
-
 while True:
-    restart = input("Press enter to exit or type start\n")
-    if restart == "start":
-        start()
+    closepr = input("Press enter to begin or type quit to close\n")
+    if closepr == "quit":
+        quit()
     else:
-        exit()
+        start()

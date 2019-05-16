@@ -8,6 +8,15 @@ from math import sin
 from math import radians
 import random
 
+#Inputs
+#anchorp - point3D, anchor point
+#depth - integer, recursion cnt
+#angle - float, split base angle
+#length - float, first branch length
+#lvariation - float, length change with each branch
+#aran - float, % of randomness in relation to base angle
+#lran - float, % of randomness in relation to base length
+
 #getting starting point from anchorpoint
 x1 = anchorp.X
 y1 = anchorp.Y
@@ -38,8 +47,8 @@ def fractal(depth , x2, y2, z2, length, anglerec, angle, lvariation, aran, lran)
         #defining points
         x1 = x2
         y1 = y2
-        z1 = z2
-        x2 = x1 + (length+lrn)*cos(radians(anglerec))
+        z1 = z2 
+        z2 = z1 + (length+lrn)*cos(radians(anglerec))
         y2 = y1 + (length+lrn)*sin(radians(anglerec))
         
         #changing branch length dependant on branch depth

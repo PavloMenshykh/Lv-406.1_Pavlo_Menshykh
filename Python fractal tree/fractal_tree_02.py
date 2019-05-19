@@ -112,17 +112,37 @@ def removeintersections():
     pass
     #events = Rhino.Geometry.Intersect.Intersection.CurveCurve(curveA, curveB, intersection_tolerance, overlap_tolerance)
 
-#function that create sphere capped pipes on lines
-def pipes(args):
-    crv, rad = args
-    return ghc.Pipe(crv, rad, 1)
+#output list
+pgons = []
 
-#paralle compute execution of pipes function
-linep = []
+#create ngon branch depth dependant
+def ngons(args):
+    nn, length, lvariation, kk, radtolen, mngon = args
+    stpnt = ghc.EndPoints(nn)[0] #returns list of two points, start and end
+    endpnt = ghc.EndPoints(nn)[1]
+    vect = ghc.Vector2Pt(stpnt, endpnt, False)[0] #returns list with vector and vector length
+    pln = ghc.PlaneNormal(stpnt, vect) #returns a plane perp to a vector
+    radius = length*(lvariation**kk)/radtolen
+        
+    #reduce details with each branch, but not less than 3
+    if mngon-kk+1 <= 3:
+        splits = 3
+    else:
+        splits = mngon-kk+1
+    
+    pgn = ghc.Polygon(pln, radius, splits, 0)[0] #returns a polygon and its perimeter
+    geo = ghc.Extrude(pgn, vect)
+    return ghc.CapHoles(geo)
 
+#iterate over branches and run ngons func
 for kk in treelinsorted.keys():
-    args = [[treelinsorted[kk], (length*(lvariation**kk))/radtolen]]
-    linep.append(ghp.run(pipes, args, True))
+    for nn in treelinsorted[kk]:
+        args = [nn, length, lvariation, kk, radtolen, mngon]
+        pgons.append(ngons(args))
 
-#flatten a list of pipes for output
-flatlinep = [y for x in linep for y in x]
+def joiner(args):
+    breps = args
+    return ghc.SolidUnion(breps)
+
+args = [pgons]
+joined = ghp.run(joiner, args, True)

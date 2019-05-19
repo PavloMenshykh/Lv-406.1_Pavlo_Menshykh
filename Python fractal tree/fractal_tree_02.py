@@ -117,7 +117,7 @@ pgons = []
 
 #create ngon branch depth dependant
 def ngons(args):
-    nn, length, lvariation, kk, radtolen, mngon = args
+    nn, length, lvariation, kk, radtolen, mngon, depth = args
     stpnt = ghc.EndPoints(nn)[0] #returns list of two points, start and end
     endpnt = ghc.EndPoints(nn)[1]
     vect = ghc.Vector2Pt(stpnt, endpnt, False)[0] #returns list with vector and vector length
@@ -131,18 +131,21 @@ def ngons(args):
         splits = mngon-kk+1
     
     pgn = ghc.Polygon(pln, radius, splits, 0)[0] #returns a polygon and its perimeter
-    geo = ghc.Extrude(pgn, vect)
-    return ghc.CapHoles(geo)
+    
+    if kk == depth:
+        geo = ghc.ExtrudePoint(pgn, endpnt) #if last branch than make a pyramid
+    else:
+        geo = ghc.Extrude(pgn, vect) #extrudes the polygon along vector
+    
+    return ghc.CapHoles(geo) #caps ends on the extruded brep
 
 #iterate over branches and run ngons func
 for kk in treelinsorted.keys():
     for nn in treelinsorted[kk]:
-        args = [nn, length, lvariation, kk, radtolen, mngon]
+        args = [nn, length, lvariation, kk, radtolen, mngon, depth]
         pgons.append(ngons(args))
 
-def joiner(args):
-    breps = args
+def joiner(breps):
     return ghc.SolidUnion(breps)
 
-args = [pgons]
-joined = ghp.run(joiner, args, True)
+#joined = joiner(pgons)

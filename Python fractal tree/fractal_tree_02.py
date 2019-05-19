@@ -3,6 +3,7 @@ import rhinoscriptsyntax as rs
 import Rhino.Geometry as rg
 import ghpythonlib.parallel as ghp
 import ghpythonlib.components as ghc
+import Rhino as rc
 
 
 #importing generic modules
@@ -19,6 +20,7 @@ import random
 #lvariation - float, length change with each branch
 #aran - float, % of randomness in relation to base angle
 #lran - float, % of randomness in relation to base length
+#radtolen - proportion between starting length branch depth and branch radius
 
 #getting starting point from anchorpoint
 x1 = anchorp.X
@@ -75,7 +77,7 @@ def fractal(depth, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, 
         endpoint = rg.Point3d(x2, y2, z2)
         
         #building line between points
-        linegeo = rs.AddLine(stpoint, endpoint) #rg.Line(stpoint, endpoint)
+        linegeo = rg.Line(stpoint, endpoint)
         
         #building a dict of lines with depth as key, and corresponding lines as values
         if depth not in treelin.keys():
@@ -88,24 +90,39 @@ def fractal(depth, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, 
         if len(ahr) > 0:
             fractal(depth - 1 , x2, y2, z2, length, (anglerec+angle+arn), angle, lvariation, aran, lran, ahr[0], angleh)
         if len(ahr) > 1:
-            fractal(depth - 1 , x2, y2, z2, length, (anglerec+angle+arn), angle, lvariation, aran, lran, ahr[1], angleh)
+            fractal(depth - 1 , x2, y2, z2, length, (anglerec-angle+arn), angle, lvariation, aran, lran, ahr[1], angleh)
         if len(ahr) > 2:
             fractal(depth - 1 , x2, y2, z2, length, (anglerec+angle+arn), angle, lvariation, aran, lran, ahr[2], angleh)
         if len(ahr) > 3:
-            fractal(depth - 1 , x2, y2, z2, length, (anglerec+angle+arn), angle, lvariation, aran, lran, ahr[3], angleh)
+            fractal(depth - 1 , x2, y2, z2, length, (anglerec-angle+arn), angle, lvariation, aran, lran, ahr[3], angleh)
         
 #first recursive function call
 fractal(depth, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh)
 
+#sort dict of branch lines
+treelinsorted = {}
+branch = depth
 
-#events = Rhino.Geometry.Intersect.Intersection.CurveCurve(curveA, curveB, intersection_tolerance, overlap_tolerance)
+for key in treelin.keys():
+    treelinsorted[branch] = treelin[key]
+    branch -= 1
 
-def pipes(crvs):
-    return ghc.Pipe(crvs, 20, 1)
+#maybe implement intersect tests between branches
+def removeintersections():
+    pass
+    #events = Rhino.Geometry.Intersect.Intersection.CurveCurve(curveA, curveB, intersection_tolerance, overlap_tolerance)
 
-#linep = ghp.run(pipes, treelin, True) #works fine
+#function that create sphere capped pipes on lines
+def pipes(args):
+    crv, rad = args
+    return ghc.Pipe(crv, rad, 1)
 
-aaa = treelin.get(dtest)
+#paralle compute execution of pipes function
+linep = []
 
+for kk in treelinsorted.keys():
+    args = [[treelinsorted[kk], (length*(lvariation**kk))/radtolen]]
+    linep.append(ghp.run(pipes, args, True))
 
-#linep = ghp.run(fractal, vals), True)
+#flatten a list of pipes for output
+flatlinep = [y for x in linep for y in x]

@@ -132,7 +132,7 @@ def ngons(args):
     
     pgn = ghc.Polygon(pln, radius, splits, 0)[0] #returns a polygon and its perimeter
     
-    if kk == depth:
+    if kk == depth and splits == 3:
         geo = ghc.ExtrudePoint(pgn, endpnt) #if last branch than make a pyramid
     else:
         geo = ghc.Extrude(pgn, vect) #extrudes the polygon along vector

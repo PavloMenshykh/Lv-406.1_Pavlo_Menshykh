@@ -22,6 +22,8 @@ import random
 #lran - float, % of randomness in relation to base length
 #radtolen - proportion between starting length branch depth and branch radius
 
+angle = angle*2
+
 #getting starting point from anchorpoint
 x1 = anchorp.X
 y1 = anchorp.Y
@@ -39,9 +41,20 @@ anglerech = 0
 #list of lines that form the tree, this is the output variable 
 treelin = {}
 anglest = []
+anglls = []
+grav = []
+
+#define xy vecotr for gravity reference
+refp1 = rg.Point3d(0, 0, 0)
+refp2 = rg.Point3d(0, 1, 0)
+refp3 = rg.Point3d(0, 0, 1)
+horizont = ghc.Vector2Pt(refp1, refp2, True)[0]
+#vertical plane
+verticalpln = ghc.Plane3Pt(refp1, refp3, refp2)
+
 
 #recursive function
-def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches):
+def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, gravity):
     
     #test if depth>0
     if depth:
@@ -52,7 +65,7 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         
         #defining horizontal rotation angles
         ahor = random.sample(range(0,360), branches)
-        
+        """
         #removing numbers within tolerance
         ahr = rs.CullDuplicateNumbers(ahor, angleh)
         
@@ -61,7 +74,8 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
             del ahr[0]
             
         random.shuffle(ahr)
-        
+        """
+        ahr = [0, 90, 270, 180]
         #previous branch vector
         
         vecst = rg.Point3d(x1, y1, z1)
@@ -94,6 +108,25 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         #rotating point in a cone fashion
         rotpoint = ghc.Rotate3D(endpoint, anglerech, vecend, movevec)[0] #returns rotated geometry and transformation data
         
+        #vertical branch angle
+        angl1 = ghc.Angle(rg.Line(vecend, rotpoint) , horizont, verticalpln)[0] #outputs angle and reflex
+        angl = ghc.Degrees(angl1)
+        
+        anglls.append(angl)
+        
+        #rotate depending on how horizontal branch is
+        if angl>0 and angl<180:
+            if angl<89:
+                grrot = ((30/100)*(100-(angl*0.9))/100)*gravity
+            elif angl>91:
+                grrot = ((30/100)*(100-((180-angl)*0.9))/100)*gravity
+            
+        try: 
+            grrot == 0
+            rotpoint = ghc.Rotate3D(rotpoint, grrot, vecend, verticalpln)[0]
+        except:
+            pass
+        
         #building line between points
         linegeo = rg.Line(vecend, rotpoint)
         
@@ -116,12 +149,12 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         #calling function with different angle parameter for branch splitting
         #calling as many branches as spread within tolerance
         for aa in ahr:
-            fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches)
+            fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, gravity)
         
 
         
 #first recursive function call
-fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches)
+fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, gravity)
 
 #sort dict of branch lines
 treelinsorted = {}
@@ -142,13 +175,13 @@ pgons = []
 #create ngon branch depth dependant
 def ngons(args):
     
-    nn, length, lvariation, kk, radtolen, mngon, depth = args
+    nn, length, lvariation, kk, radtolen, mngon, depth, radchng = args
     
     stpnt = ghc.EndPoints(nn)[0] #returns list of two points, start and end
     endpnt = ghc.EndPoints(nn)[1]
     vect = ghc.Vector2Pt(stpnt, endpnt, False)[0] #returns list with vector and vector length
     pln = ghc.PlaneNormal(stpnt, vect) #returns a plane perp to a vector
-    radius = length*(lvariation**kk)/radtolen
+    radius = length*(radchng**kk)/radtolen
         
     #reduce details with each branch, but not less than 3
     if mngon-kk+1 <= 3:
@@ -169,7 +202,7 @@ def ngons(args):
 def makegeo(treelinsorted):
     for kk in treelinsorted.keys():
         for nn in treelinsorted[kk]:
-            args = [nn, length, lvariation, kk, radtolen, mngon, depth]
+            args = [nn, length, lvariation, kk, radtolen, mngon, depth, radchng]
             pgons.append(ngons(args))
             
 ghp.run(makegeo, [treelinsorted], True)

@@ -129,13 +129,7 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
 #first recursive function call
 fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance)
 
-#sort dict of branch lines
-treelinsorted = {}
-branch = depth
 
-for key in treelin.keys():
-    treelinsorted[branch] = treelin[key]
-    branch -= 1
 
 #maybe implement intersect tests between branches
 def removeintersections():
@@ -145,17 +139,22 @@ def removeintersections():
 #output list
 pgons = []
 
-#create ngon branch depth dependant
-def ngons(args):
-    
-    nn, length, lvariation, kk, radtolen, mngon, depth, radchng = args
-    
+#make list of values
+branch = depthstart
+parallelinputs = []
+for kk in treelin.keys():
+    for nn in treelin[kk]:
+        parallelinputs.append([branch, nn])
+    branch -= 1
+
+def makegeo(args):
+    kk, nn = args
     stpnt = ghc.EndPoints(nn)[0] #returns list of two points, start and end
     endpnt = ghc.EndPoints(nn)[1]
     pln = ghc.PlaneNormal(stpnt, nn) #returns a plane perp to a vector
     radius = length*(radchng**kk)/radtolen
     radiusend = length*(radchng**(kk+1))/radtolen
-        
+    
     #reduce details with each branch, but not less than 3
     if mngon-kk+1 <= 3:
         splits = 3
@@ -169,19 +168,14 @@ def ngons(args):
     else:
         geostraight = ghc.Extrude(pgn, nn) #extrudes the polygon along vector
         geo = ghc.Taper(geostraight, nn, radius, radiusend, False, False, False) #inputs: geometry, axis, start radius, end radius, flat (False), infinite (False), rigid (False)
-        
-    return ghc.CapHoles(geo) #caps ends on the extruded brep
+    
+    geo3 = ghc.CapHoles(geo) #caps ends on the extruded brep
+    pgons.append(geo3)
 
-#iterate over branches and run ngons func
-def makegeo(treelinsorted):
-    for kk in treelinsorted.keys():
-        for nn in treelinsorted[kk]:
-            args = [nn, length, lvariation, kk, radtolen, mngon, depth, radchng]
-            pgons.append(ngons(args))
-            
-ghp.run(makegeo, [treelinsorted], True)
+
+ghp.run(makegeo, parallelinputs, True)
 
 def joiner(breps):
     return ghc.SolidUnion(breps)
 
-#joined = joiner(pgons)
+#joined = ghp.run(joiner, [pgons], True)

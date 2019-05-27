@@ -48,6 +48,7 @@ polygonbase = ghc.Polygon(plnbase, radiusbase, mngon, 0)[0] #returns a polygon a
 #base angle
 anglerec = 0
 anglerech = 0
+cluster = 1
 
 verticality /= 100
 gchance /= 100
@@ -55,11 +56,13 @@ mngon -= 1 #first mngon is defined outside recursive func, so it should enter it
 
 depth = depthstart
 
+
 #output list
-pgons = []
+pgons = {}
+pgons2 = {}
 
 #recursive function
-def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon):
+def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, cluster):
     
     #test if depth>0
     if depth:
@@ -150,7 +153,14 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         
         #pgons.append(polygon)
         #pgons.append(linegeo)
-        pgons.append(geocapped)
+        #pgons.append(geocapped)
+        
+        #building a dict of geo with depth as key, and geo as values, for more efficient joins
+        if cluster not in pgons.keys():
+            pgons[cluster] = [geocapped]
+        else: 
+            pgons[cluster].append(geocapped)
+        
         
         #setting coords for next branch
         x1 = x2
@@ -170,12 +180,19 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         
         for aa in ahr:
             if ((random.randint(40, 99)/100)**depth) < gchance or depth == depthstart+1: #or added to prevent blank trees
-                fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon)
+                fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, cluster+1)
 
 #first recursive function call
-fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygonbase)
+fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygonbase, cluster)
+
+data_for_parallel = []
+for key in pgons.keys():
+    branch_geo = []
+    for nn in pgons[key]:
+        branch_geo.append(nn)
+    data_for_parallel.append(branch_geo)
 
 def joiner(breps):
     return ghc.SolidUnion(breps)
 
-joined = ghp.run(joiner, [pgons], True)
+joined = ghp.run(joiner, data_for_parallel, True)

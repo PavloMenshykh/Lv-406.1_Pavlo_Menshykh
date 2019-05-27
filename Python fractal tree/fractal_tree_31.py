@@ -7,7 +7,6 @@ import Rhino as rc
 import Rhino
 import Rhino.Commands as rcc
 
-
 #importing generic modules
 from math import cos
 from math import sin
@@ -48,7 +47,8 @@ polygonbase = ghc.Polygon(plnbase, radiusbase, mngon, 0)[0] #returns a polygon a
 #base angle
 anglerec = 0
 anglerech = 0
-cluster = 1
+cluster = [1]
+branch_cluster = cluster[0]
 
 verticality /= 100
 gchance /= 100
@@ -56,13 +56,11 @@ mngon -= 1 #first mngon is defined outside recursive func, so it should enter it
 
 depth = depthstart
 
-
 #output list
 pgons = {}
-pgons2 = {}
 
 #recursive function
-def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, cluster):
+def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, branch_cluster):
     
     #test if depth>0
     if depth:
@@ -135,6 +133,7 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         #aligning curves for loft creation
         crvst = ghc.EndPoints(polygon)[0]
         pntcld = ghc.Discontinuity(polygonend, 1) #returns points and point parameters
+        
         #finind seam point
         closest_point = ghc.ClosestPoint(crvst, pntcld[0]) #returns closest point, closest point index, distance between closest points
         seampnt = pntcld[1][closest_point[1]]
@@ -151,16 +150,12 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         #make solid
         geocapped = ghc.CapHoles(geo)
         
-        #pgons.append(polygon)
-        #pgons.append(linegeo)
-        #pgons.append(geocapped)
-        
         #building a dict of geo with depth as key, and geo as values, for more efficient joins
-        if cluster not in pgons.keys():
-            pgons[cluster] = [geocapped]
-        else: 
-            pgons[cluster].append(geocapped)
         
+        if branch_cluster not in pgons.keys():
+            pgons[branch_cluster] = [geocapped]
+        else: 
+            pgons[branch_cluster].append(geocapped)
         
         #setting coords for next branch
         x1 = x2
@@ -177,22 +172,36 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         
         #calling function with different angle parameter for branch splitting
         #calling as many branches as spread within tolerance
+        #filling dict with branch clusters
+        cluster.append(cluster[-1]+1)
+        branch_cluster=cluster[-1]
         
         for aa in ahr:
             if ((random.randint(40, 99)/100)**depth) < gchance or depth == depthstart+1: #or added to prevent blank trees
-                fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, cluster+1)
+                fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, branch_cluster)
 
 #first recursive function call
-fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygonbase, cluster)
+fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygonbase, branch_cluster)
+
 
 data_for_parallel = []
+data_single = []
 for key in pgons.keys():
-    branch_geo = []
-    for nn in pgons[key]:
-        branch_geo.append(nn)
-    data_for_parallel.append(branch_geo)
+    if len(pgons[key]) < 2:
+        data_single.append(pgons[key][0])
+    else:
+        branch_geo = []
+        for nn in pgons[key]:
+            branch_geo.append(nn)
+        data_for_parallel.append(branch_geo)
 
 def joiner(breps):
-    return ghc.SolidUnion(breps)
+    return ghc.SolidUnion(breps) 
 
 joined = ghp.run(joiner, data_for_parallel, True)
+treeoutput = [joined, data_single]
+
+
+#print(cluster)
+#print(pgons)
+#print(data_for_parallel)

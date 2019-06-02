@@ -3,10 +3,6 @@ import rhinoscriptsyntax as rs
 import Rhino.Geometry as rg
 import ghpythonlib.parallel as ghp
 import ghpythonlib.components as ghc
-import Rhino as rc
-import Rhino
-import Rhino.Commands as rcc
-import Grasshopper.Kernel as ghk
 
 #importing generic modules
 from math import cos
@@ -17,15 +13,24 @@ from math import degrees
 
 #Inputs
 #anchorp - point3D, anchor point
-#depth - integer, recursion cnt
+#depthstart - integer, recursion cnt
+#branches - integer, maximum amount of horizontal branches
 #angle - float, split base angle
+#angleh - float, minimum horizontal branches spacing
 #length - float, first branch length
 #lvariation - float, length change with each branch
 #aran - float, % of randomness in relation to base angle
 #lran - float, % of randomness in relation to base length
-#radtolen - proportion between starting length branch depth and branch radius
-
-#angle = angle*2
+#hrandom  - boolean, if horizontal branches evenly spaced or random
+#radtolen - float, proportion between starting length branch depth and branch radius
+#radchng - float, extra radius changes exept for one derived from lvariation
+#mngon - interger, starting polygon vertex count
+#verticality - float, angle smaller variation with higher branches, adds realism
+#gchance - chance that a branch will stop, increases with depth
+#leaflen - float, length of leaves
+#leafwidth - float, width of leaves
+#maxleaves - int, maximum number of leaves growing from leafpoint
+#leavesperbranch - int, maximum number of leaf growth points on last branch
 
 #getting starting point from anchorpoint
 x1 = anchorp.X
@@ -60,7 +65,7 @@ depth = depthstart
 #output list
 pgons = {}
 pgnosout = [] #for debug purposes
-testpoint = []
+leaves = []
 
 #recursive function
 def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, branch_cluster):
@@ -152,7 +157,6 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
         
         #make solid
         geocapped = ghc.CapHoles(geo)
-        #geocapped = ghc.CapHolesEx(geo)[0] #for testing purposes
         
         #building a dict of geo with depth as key, and geo as values, for more efficient joins
         
@@ -187,71 +191,60 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
                 if ((random.randint(40, 99)/100)**depth) < gchance or depth == depthstart+1: #or added to prevent blank trees
                     fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, branch_cluster)
         else:
-            pass
-            
             #leaf logic
-            #vector for leaf growth spread
-            leafpntvec = ghc.Vector2Pt(vecend, rotpoint, True)[0]
-            
-            #setting leaf growth position on last barnch
-            lenleaf = (length+lrn)*cos(radians(anglerec+arn))/3*2
-            lenleaf = random.uniform(lenleaf/5*4, lenleaf/5*6)
-            lenleaf2 = (length+lrn)*cos(radians(anglerec+arn))/3
-            lenleaf2 = random.uniform(lenleaf2/5*4, lenleaf2/5*6)
-            lenleaf3 = (length+lrn)*cos(radians(anglerec+arn))
-            lenleaf3 = random.uniform(lenleaf3/5*4, lenleaf3/5*6)
-            
-            ampleaf1 = ghc.Amplitude(leafpntvec, lenleaf)
-            ampleaf2 = ghc.Amplitude(leafpntvec, lenleaf2)
-            ampleaf3 = ghc.Amplitude(leafpntvec, lenleaf3)
-            
-            #setting leaf gworth points
-            leafpoint1 = ghc.Move(vecend, ampleaf1)[0]
-            leafpoint2 = ghc.Move(vecend, ampleaf2)[0]
-            leafpoint3 = ghc.Move(vecend, ampleaf3)[0]
-            
-            #creating a points list to iterate over
-            leafbasepnt = [leafpoint1, leafpoint2, leafpoint3, rotpoint]
-            
-            for leaf in leafbasepnt:
-                #create an imaginary circle with leaflen radius and populate it with points for random leaf generation
-                testcircle = ghc.Circle(leaf, leaflen)
-                circlesurf = ghc.BoundarySurfaces(testcircle)
-                leafendpnts = ghc.PopulateGeometry(circlesurf, random.randint(2, maxleaves+1), random.randint(1,500)) #has to be over 1 for correct iteration, else iterates over xyz values
+            if leavesperbranch > 0:
                 
-                #iterate over random number of generated points
-                for pp in leafendpnts:
-                    #random z move
-                    zmove = rg.Vector3d(0, 0, 1)
-                    moveamp = random.uniform(-leaflen/3, 0)
-                    ampzmove = ghc.Amplitude(zmove, moveamp)
-                    llendpnt = ghc.Move(pp, ampzmove)[0]
+                #vector for leaf growth spread
+                leafpntvec = ghc.Vector2Pt(vecend, rotpoint, True)[0]
+                
+                #setting leaf growth position on last barnch
+                #leafpnt list
+                lastbranchlength = ghc.Length(linegeo)
+                leaves_list = [] 
+                if leavesperbranch > 1:
+                    for lengthparam in random.sample(range(0, int(lastbranchlength)), leavesperbranch-1):
+                        leaves_list.append(lengthparam)
+                leaves_list.append(lastbranchlength)
+                for leafpnt in leaves_list:
+                    leafamp = ghc.Amplitude(leafpntvec, leafpnt)
+                    leafpoint = ghc.Move(vecend, leafamp)[0]
                     
-                    #setting a leaf centerline vector
-                    leafvector = ghc.Vector2Pt(leaf, llendpnt, True)[0]
-                    #defining leaf center point as avarage of st and end pnts
-                    midpnt = ghc.Average([leaf, llendpnt])
+                    #plane for leaf generation
+                    linetocenter = ghc.Line(stpntbase, leafpoint)
+                    planetocenter = ghc.PlaneNormal(leafpoint, linetocenter)
                     
-                    #creating a xy vector perpendicular to leaf axis
-                    leafmoveperp = ghc.PlaneNormal(midpnt, leafvector)
-                    plnsdec = ghc.DeconstructPlane(leafmoveperp) #origin, x, y, z
-                    rotplaneleaf = ghc.ConstructPlane(plnsdec[2], plnsdec[1], plnsdec[3]) #constructing new plane switching x and y planes to make perpendicular
+                    #create an imaginary circle with leaflen radius and populate it with points for random leaf generation
+                    #testcircle = ghc.Circle(leafpoint, leaflen)
+                    testcircle = ghc.CircleCNR(leafpoint, linetocenter, leaflen)
+                    circlesurf = ghc.BoundarySurfaces(testcircle)
+                    leafendpnts = ghc.PopulateGeometry(circlesurf, random.randint(2, maxleaves+1), random.randint(1,500)) #has to be over 1 for correct iteration, else iterates over xyz values
                     
-                    #generating perpendicular vector
-                    vecperpleaf = ghc.Rotate(leafvector, radians(90), rotplaneleaf)[0]
-                    leafperpamp = ghc.Amplitude(vecperpleaf, random.uniform((leafwidth/2)/5*4, (leafwidth/2)/5*6))
-                    
-                    #moving mid point to both sides
-                    midpnt1 = ghc.Move(midpnt, leafperpamp)[0]
-                    midpnt2 = ghc.Move(midpnt, -leafperpamp)[0]
-                    
-                    #leaf geo
-                    leafgeo = rg.NurbsSurface.CreateFromCorners(leaf, midpnt1, llendpnt, midpnt2)
-                    
-                    testpoint.append(leafgeo)
+                    #iterate over random number of generated points
+                    for pp in leafendpnts:
+                        #random z move
+                        zmove = rg.Vector3d(0, 0, 1)
+                        moveamp = random.uniform(-leaflen/3, leaflen/5)
+                        ampzmove = ghc.Amplitude(zmove, moveamp)
+                        llendpnt = ghc.Move(pp, ampzmove)[0]
+                        
+                        #setting a leaf centerline vector
+                        leafvector = ghc.Vector2Pt(leafpoint, llendpnt, True)[0]
+                        #defining leaf center point as avarage of st and end pnts
+                        midpnt = ghc.Average([leafpoint, llendpnt])
+                        
+                        #generating perpendicular vector
+                        vecperpleaf = ghc.Rotate(leafvector, radians(90), planetocenter)[0]
+                        leafperpamp = ghc.Amplitude(vecperpleaf, random.uniform((leafwidth/2)/5*4, (leafwidth/2)/5*6))
+                        
+                        #moving mid point to both sides
+                        midpnt1 = ghc.Move(midpnt, leafperpamp)[0]
+                        midpnt2 = ghc.Move(midpnt, -leafperpamp)[0]
+                        
+                        #leaf geo
+                        leafgeo = rg.NurbsSurface.CreateFromCorners(leafpoint, midpnt1, llendpnt, midpnt2)
+                        
+                        leaves.append(leafgeo)
             
-
-
 #first recursive function call
 fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, aran, lran, anglerech, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygonbase, branch_cluster)
 

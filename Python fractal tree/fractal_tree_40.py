@@ -31,6 +31,7 @@ from math import degrees
 #leafwidth - float, width of leaves
 #maxleaves - int, maximum number of leaves growing from leafpoint
 #leavesperbranch - int, maximum number of leaf growth points on last branch
+#leavesdepth - int, branch depth where leaves grow
 
 #getting starting point from anchorpoint
 x1 = anchorp.X
@@ -190,7 +191,7 @@ def fractal(depth, x1, y1, z1, x2, y2, z2, length, anglerec, angle, lvariation, 
             for aa in ahr:
                 if ((random.randint(40, 99)/100)**depth) < gchance or depth == depthstart+1: #or added to prevent blank trees
                     fractal(depth - 1 , x1, y1, z1, x2, y2, z2, length, angle, angle, lvariation, aran, lran, aa, angleh, branches, verticality, gchance, depthstart, radtolen, radchng, mngon, polygon, branch_cluster)
-        else:
+        if depth <= leavesdepth:
             #leaf logic
             if leavesperbranch > 0:
                 
@@ -261,7 +262,6 @@ for key in pgons.keys():
     else:
         data_single.append(pgons[key][0])
 
-
 def joiner(breps):
     try:
         union = ghc.SolidUnion(breps)
@@ -275,7 +275,6 @@ for data in data_for_parallel:
     joined.append(joiner(data))
 #joined = ghp.run(joiner, data_for_parallel, True)
 #treeoutput = [joined, data_single]
-
 
 #print(cluster)
 #print(pgons)
